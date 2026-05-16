@@ -9,6 +9,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: #000; }
 
+    /* Portrait: pide rotar */
     #rotate-msg {
       display: none;
       position: fixed; inset: 0;
@@ -22,7 +23,6 @@
       0%, 100% { transform: rotate(0deg); }
       50%       { transform: rotate(90deg); }
     }
-
     @media (orientation: portrait) {
       #rotate-msg { display: flex; }
       #game-wrap  { display: none; }
@@ -32,63 +32,21 @@
       #game-wrap  { display: block; }
     }
 
-    #game-wrap { position: fixed; inset: 0; }
-
-    iframe {
-      width: 100%; height: 100%;
-      border: none; display: block;
-    }
-
-    #overlay {
+    #game-wrap {
       position: fixed; inset: 0;
-      pointer-events: none;
-      z-index: 10;
+      overflow: hidden;
     }
 
-    .ovr-btn {
-      position: absolute;
-      pointer-events: all;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; font-weight: bold; color: #fff;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      border: 3px solid rgba(255,255,255,0.8);
-      transition: filter 0.08s;
-      opacity: 0.92;
-    }
-    .ovr-btn:active { filter: brightness(1.6); }
-
-    /* Tamaño igual al de los botones del juego, posicionados encima */
-    /* El iframe ocupa desde ~17% left hasta ~82% right de la pantalla */
-    /* Los botones del juego están al fondo del iframe ~93% height */
-
-    #btn-left {
-      background: rgba(200, 30, 30, 0.85);
-      border-radius: 30px;
-      /* Botón ← del juego: ~25% del ancho del iframe desde izq, bottom ~7% */
-      bottom: 4%;
-      left: 21%;
-      width: 9%;
-      height: 10%;
-    }
-    #btn-right {
-      background: rgba(200, 30, 30, 0.85);
-      border-radius: 30px;
-      /* Botón → del juego: ~37% del ancho del iframe desde izq */
-      bottom: 4%;
-      left: 32%;
-      width: 9%;
-      height: 10%;
-    }
-    #btn-jump {
-      background: rgba(210, 110, 0, 0.9);
-      border-radius: 50%;
-      /* Botón salto: ~85% del ancho del iframe desde izq */
-      bottom: 4%;
-      right: 4%;
-      width: 9%;
-      height: 10%;
+    /* El iframe se escala para llenar toda la pantalla */
+    #gframe {
+      border: none;
+      display: block;
+      /* El juego internamente es 960x600 aprox.
+         Lo escalamos para que llene el ancho de pantalla */
+      width: 960px;
+      height: 600px;
+      transform-origin: top left;
+      /* El scale se calcula en JS según el tamaño real de pantalla */
     }
   </style>
 </head>
@@ -108,65 +66,35 @@
       scrolling="no"
       sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts allow-same-origin"
     ></iframe>
-
-    <div id="overlay">
-      <div class="ovr-btn" id="btn-left">←</div>
-      <div class="ovr-btn" id="btn-right">→</div>
-      <div class="ovr-btn" id="btn-jump">↑</div>
-    </div>
   </div>
 
   <script>
-    const iframe = document.getElementById('gframe');
+    function scaleGame() {
+      const frame = document.getElementById('gframe');
+      const wrap  = document.getElementById('game-wrap');
+      if (!frame || !wrap) return;
 
-    function touchAt(relX, relY, type) {
-      const rect = iframe.getBoundingClientRect();
-      const x = rect.left + rect.width  * relX;
-      const y = rect.top  + rect.height * relY;
-      try {
-        const touch = new Touch({
-          identifier: Date.now(),
-          target: iframe,
-          clientX: x, clientY: y,
-          screenX: x, screenY: y,
-          pageX: x,   pageY: y,
-          radiusX: 15, radiusY: 15,
-          rotationAngle: 0, force: 1
-        });
-        const ev = new TouchEvent(type, {
-          bubbles: true, cancelable: true,
-          touches:        type === 'touchend' ? [] : [touch],
-          targetTouches:  type === 'touchend' ? [] : [touch],
-          changedTouches: [touch]
-        });
-        iframe.dispatchEvent(ev);
-      } catch(e) {}
+      const sw = wrap.clientWidth;
+      const sh = wrap.clientHeight;
+
+      // Escala para que el iframe llene toda la pantalla
+      const scaleX = sw / 960;
+      const scaleY = sh / 600;
+      // Usamos el mayor para que llene completamente (puede recortar un poco)
+      const scale  = Math.max(scaleX, scaleY);
+
+      frame.style.transform = `scale(${scale})`;
+
+      // Centrar
+      const scaledW = 960 * scale;
+      const scaledH = 600 * scale;
+      frame.style.marginLeft = ((sw - scaledW) / 2) + 'px';
+      frame.style.marginTop  = ((sh - scaledH) / 2) + 'px';
     }
 
-    // Posiciones relativas dentro del iframe donde están los botones originales
-    const POS = {
-      left:  { x: 0.10, y: 0.94 },
-      right: { x: 0.25, y: 0.94 },
-      jump:  { x: 0.87, y: 0.94 }
-    };
-
-    function bindBtn(id, posKey) {
-      const btn = document.getElementById(id);
-      btn.addEventListener('touchstart', e => {
-        e.preventDefault();
-        touchAt(POS[posKey].x, POS[posKey].y, 'touchstart');
-      }, { passive: false });
-      btn.addEventListener('touchend', e => {
-        e.preventDefault();
-        touchAt(POS[posKey].x, POS[posKey].y, 'touchend');
-      }, { passive: false });
-      btn.addEventListener('mousedown', () => touchAt(POS[posKey].x, POS[posKey].y, 'touchstart'));
-      btn.addEventListener('mouseup',   () => touchAt(POS[posKey].x, POS[posKey].y, 'touchend'));
-    }
-
-    bindBtn('btn-left',  'left');
-    bindBtn('btn-right', 'right');
-    bindBtn('btn-jump',  'jump');
+    window.addEventListener('load',   scaleGame);
+    window.addEventListener('resize', scaleGame);
+    scaleGame();
 
     if (window.Telegram && window.Telegram.WebApp) {
       window.Telegram.WebApp.ready();

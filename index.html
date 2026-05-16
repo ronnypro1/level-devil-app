@@ -8,32 +8,193 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: #000; }
-    iframe {
+
+    /* Mensaje de rotar — solo en portrait */
+    #rotate-msg {
+      display: none;
       position: fixed;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
+      inset: 0;
+      background: #111;
+      color: #fff;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      font-family: sans-serif;
+      text-align: center;
+      z-index: 100;
+    }
+    #rotate-msg .icon { font-size: 64px; animation: spin 2s ease-in-out infinite; }
+    #rotate-msg p { font-size: 18px; opacity: 0.85; padding: 0 30px; }
+    @keyframes spin {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(90deg); }
+    }
+
+    @media (orientation: portrait) {
+      #rotate-msg { display: flex; }
+      #game-wrap  { display: none; }
+    }
+    @media (orientation: landscape) {
+      #rotate-msg { display: none; }
+      #game-wrap  { display: block; }
+    }
+
+    #game-wrap {
+      position: fixed;
+      inset: 0;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
       border: none;
+      display: block;
+      pointer-events: all;
+    }
+
+    /* Botones overlay encima del iframe */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none; /* deja pasar clicks al iframe excepto en los botones */
+      z-index: 10;
+    }
+
+    .ovr-btn {
+      position: absolute;
+      pointer-events: all;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      border: 3px solid rgba(255,255,255,0.7);
+      transition: filter 0.08s;
+    }
+    .ovr-btn:active { filter: brightness(1.5); }
+
+    /* Posiciones: parte inferior del iframe, mismas zonas que los botones del juego */
+    /* ← izquierda */
+    #btn-left {
+      background: rgba(220, 50, 50, 0.75);
+      bottom: 3%;
+      left: 3%;
+      width: 18%;
+      height: 13%;
+    }
+    /* → derecha */
+    #btn-right {
+      background: rgba(220, 50, 50, 0.75);
+      bottom: 3%;
+      left: 23%;
+      width: 18%;
+      height: 13%;
+    }
+    /* ↑ salto */
+    #btn-jump {
+      background: rgba(220, 120, 0, 0.85);
+      bottom: 3%;
+      right: 3%;
+      width: 18%;
+      height: 13%;
+      border-radius: 50%;
     }
   </style>
 </head>
 <body>
-  <iframe
-    src="https://1games.io/game/level-devil/"
-    allowfullscreen="true"
-    allow="autoplay; fullscreen; gamepad; keyboard-map *"
-    scrolling="no"
-    sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts allow-same-origin"
-  ></iframe>
+
+  <!-- Mensaje portrait -->
+  <div id="rotate-msg">
+    <div class="icon">📱➡️🎮</div>
+    <p>Gira tu teléfono para jugar Level Devil</p>
+  </div>
+
+  <!-- Juego -->
+  <div id="game-wrap">
+    <iframe
+      id="gframe"
+      src="https://1games.io/game/level-devil/"
+      allowfullscreen="true"
+      allow="autoplay; fullscreen; gamepad; keyboard-map *"
+      scrolling="no"
+      sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts allow-same-origin"
+    ></iframe>
+
+    <!-- Botones encima del iframe -->
+    <div id="overlay">
+      <div class="ovr-btn" id="btn-left">←</div>
+      <div class="ovr-btn" id="btn-right">→</div>
+      <div class="ovr-btn" id="btn-jump">↑</div>
+    </div>
+  </div>
 
   <script>
+    // Simula un touch en una posición del iframe
+    function touchAt(iframe, relX, relY, type) {
+      const rect = iframe.getBoundingClientRect();
+      const x = rect.left + rect.width  * relX;
+      const y = rect.top  + rect.height * relY;
+
+      const touch = new Touch({
+        identifier: Math.random() * 1000 | 0,
+        target: iframe,
+        clientX: x, clientY: y,
+        screenX: x, screenY: y,
+        pageX: x,   pageY: y,
+        radiusX: 20, radiusY: 20,
+        rotationAngle: 0, force: 1
+      });
+      const event = new TouchEvent(type, {
+        bubbles: true, cancelable: true,
+        touches:       type === 'touchend' ? [] : [touch],
+        targetTouches: type === 'touchend' ? [] : [touch],
+        changedTouches: [touch]
+      });
+      iframe.dispatchEvent(event);
+      document.elementFromPoint(x, y)?.dispatchEvent(event);
+    }
+
+    const iframe = document.getElementById('gframe');
+
+    // Posiciones relativas dentro del iframe donde están los botones del juego
+    // (ajustadas según las screenshots: bottom ~92%, izq ~12%, centro ~30%, der ~88%)
+    const POS = {
+      left:  { x: 0.12, y: 0.92 },
+      right: { x: 0.30, y: 0.92 },
+      jump:  { x: 0.88, y: 0.92 }
+    };
+
+    function bindBtn(id, posKey) {
+      const btn = document.getElementById(id);
+      btn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        touchAt(iframe, POS[posKey].x, POS[posKey].y, 'touchstart');
+      }, { passive: false });
+      btn.addEventListener('touchend', e => {
+        e.preventDefault();
+        touchAt(iframe, POS[posKey].x, POS[posKey].y, 'touchend');
+      }, { passive: false });
+      // fallback mouse
+      btn.addEventListener('mousedown', () => touchAt(iframe, POS[posKey].x, POS[posKey].y, 'touchstart'));
+      btn.addEventListener('mouseup',   () => touchAt(iframe, POS[posKey].x, POS[posKey].y, 'touchend'));
+    }
+
+    bindBtn('btn-left',  'left');
+    bindBtn('btn-right', 'right');
+    bindBtn('btn-jump',  'jump');
+
+    // Telegram
     if (window.Telegram && window.Telegram.WebApp) {
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
       window.Telegram.WebApp.BackButton.show();
-      window.Telegram.WebApp.BackButton.onClick(function () {
-        window.Telegram.WebApp.close();
-      });
+      window.Telegram.WebApp.BackButton.onClick(() => window.Telegram.WebApp.close());
     }
   </script>
 </body>

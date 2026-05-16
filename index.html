@@ -9,7 +9,6 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: #000; }
 
-    /* Portrait: pide rotar */
     #rotate-msg {
       display: none;
       position: fixed; inset: 0;
@@ -35,18 +34,17 @@
     #game-wrap {
       position: fixed; inset: 0;
       overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    /* El iframe se escala para llenar toda la pantalla */
     #gframe {
       border: none;
       display: block;
-      /* El juego internamente es 960x600 aprox.
-         Lo escalamos para que llene el ancho de pantalla */
       width: 960px;
       height: 600px;
-      transform-origin: top left;
-      /* El scale se calcula en JS según el tamaño real de pantalla */
+      transform-origin: center center;
     }
   </style>
 </head>
@@ -77,19 +75,10 @@
       const sw = wrap.clientWidth;
       const sh = wrap.clientHeight;
 
-      // Escala para que el iframe llene toda la pantalla
-      const scaleX = sw / 960;
-      const scaleY = sh / 600;
-      // Usamos el mayor para que llene completamente (puede recortar un poco)
-      const scale  = Math.max(scaleX, scaleY);
+      // Usar el MENOR scale para que todo el juego (incluyendo botones) sea visible
+      const scale = Math.min(sw / 960, sh / 600);
 
       frame.style.transform = `scale(${scale})`;
-
-      // Centrar
-      const scaledW = 960 * scale;
-      const scaledH = 600 * scale;
-      frame.style.marginLeft = ((sw - scaledW) / 2) + 'px';
-      frame.style.marginTop  = ((sh - scaledH) / 2) + 'px';
     }
 
     window.addEventListener('load',   scaleGame);

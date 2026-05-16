@@ -75,8 +75,12 @@
       const sw = wrap.clientWidth;
       const sh = wrap.clientHeight;
 
-      // Usar el MENOR scale para que todo el juego (incluyendo botones) sea visible
-      const scale = Math.min(sw / 960, sh / 600);
+      // Escalar por ancho pero asegurando que los botones (parte baja) sean visibles
+      // El juego tiene ratio 960x600 = 1.6
+      // Usamos 90% del alto para dejar un poco de margen y ver los botones
+      const scaleByW = sw / 960;
+      const scaleByH = (sh * 0.98) / 600;
+      const scale = Math.min(scaleByW, scaleByH);
 
       frame.style.transform = `scale(${scale})`;
     }
